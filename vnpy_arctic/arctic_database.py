@@ -1,15 +1,14 @@
 from datetime import datetime
 from typing import List, cast
 
-from pandas import DataFrame, Timestamp
-from arctic.arctic import Arctic, CHUNK_STORE, METADATA_STORE
-from arctic.date import DateRange
+from arctic.arctic import CHUNK_STORE, METADATA_STORE, Arctic
 from arctic.chunkstore.chunkstore import ChunkStore
+from arctic.date import DateRange
 from arctic.store.metadata_store import MetadataStore
-
+from pandas import DataFrame, Timestamp
 from vnpy.trader.constant import Exchange, Interval
+from vnpy.trader.database import DB_TZ, BarOverview, BaseDatabase, TickOverview, convert_tz
 from vnpy.trader.object import BarData, TickData
-from vnpy.trader.database import BaseDatabase, BarOverview, TickOverview, DB_TZ, convert_tz
 from vnpy.trader.setting import SETTINGS
 
 
@@ -47,9 +46,12 @@ class ArcticDatabase(BaseDatabase):
         symbol: str = dataobj.symbol
         table_name: str = generate_table_name(symbol, dataobj.exchange, getattr(dataobj, "interval", None))
 
+        if "date" in df.columns:
+            df.set_index("date", inplace=True)
+
         # 将数据更新到数据库中
         data_lib.update(
-            table_name, df, upsert=True, chunk_size="M", chunk_range=DateRange(df.date.min(), df.date.max())
+            table_name, df, upsert=True, chunk_size="M", chunk_range=DateRange(df.index.min(), df.index.max())
         )
 
         info: dict = data_lib.get_info(table_name)
@@ -145,7 +147,7 @@ class ArcticDatabase(BaseDatabase):
             }
             data.append(d)
 
-        df: DataFrame = DataFrame.from_records(data)
+        df: DataFrame = DataFrame.from_records(data).set_index("date")
 
         self._save_helper(self.tick_library, self.tick_overview_library, ticks[0], df, stream)
 
@@ -161,7 +163,8 @@ class ArcticDatabase(BaseDatabase):
         if df.empty:
             return []
 
-        df.set_index("date", inplace=True)
+        if "date" in df.columns:
+            df.set_index("date", inplace=True)
         df.sort_index(inplace=True)
         df = df.tz_localize(DB_TZ.key)
 
@@ -293,7 +296,7 @@ class ArcticDatabase(BaseDatabase):
                 interval=Interval(metadata["interval"]),
                 start=metadata["start"],
                 end=metadata["end"],
-                count=metadata["count"],
+                count=metadata.get("count", 0),
             )
 
             overviews.append(overview)
@@ -313,7 +316,7 @@ class ArcticDatabase(BaseDatabase):
                 exchange=Exchange(metadata["exchange"]),
                 start=metadata["start"],
                 end=metadata["end"],
-                count=metadata["count"],
+                count=metadata.get("count", 0),
             )
 
             overviews.append(overview)

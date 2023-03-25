@@ -25,7 +25,6 @@ import importlib_metadata
 
 from .arctic_database import ArcticDatabase as Database
 
-
 try:
     __version__ = importlib_metadata.version("vnpy_arctic")
 except importlib_metadata.PackageNotFoundError:
