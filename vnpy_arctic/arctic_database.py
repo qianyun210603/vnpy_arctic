@@ -86,12 +86,12 @@ class ArcticDatabase(BaseDatabase):
         for bar in bars:
             d: dict = {
                 "date": convert_tz(bar.datetime),
-                "open_price": bar.open_price,
-                "high_price": bar.high_price,
-                "low_price": bar.low_price,
-                "close_price": bar.close_price,
+                "open": bar.open_price,
+                "high": bar.high_price,
+                "low": bar.low_price,
+                "close": bar.close_price,
                 "volume": bar.volume,
-                "turnover": bar.turnover,
+                "money": bar.turnover,
                 "open_interest": bar.open_interest,
             }
 
@@ -177,12 +177,12 @@ class ArcticDatabase(BaseDatabase):
                 datetime=cast(Timestamp, dt).to_pydatetime(),
                 interval=interval,
                 volume=tp.volume,
-                turnover=tp.turnover,
+                turnover=tp.money,
                 open_interest=tp.open_interest,
-                open_price=tp.open_price,
-                high_price=tp.high_price,
-                low_price=tp.low_price,
-                close_price=tp.close_price,
+                open_price=tp.open,
+                high_price=tp.high,
+                low_price=tp.low,
+                close_price=tp.close,
                 gateway_name="DB",
             )
             bars.append(bar)
