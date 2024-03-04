@@ -1,15 +1,23 @@
 from datetime import datetime
-from typing import List, cast
+from typing import List, cast, Optional
 
 from arctic.arctic import CHUNK_STORE, METADATA_STORE, Arctic
 from arctic.chunkstore.chunkstore import ChunkStore
 from arctic.date import DateRange
 from arctic.store.metadata_store import MetadataStore
 from pandas import DataFrame, Timestamp
-from vnpy.trader.constant import Exchange, Interval
+from vnpy.trader.constant import Exchange, Interval, Product
 from vnpy.trader.database import DB_TZ, BarOverview, BaseDatabase, TickOverview, convert_tz
-from vnpy.trader.object import BarData, TickData
+from vnpy.trader.object import BarData, TickData, ContractData
 from vnpy.trader.setting import SETTINGS
+
+PRODUCT_MAPPING = {
+    Product.EQUITY: "stock_meta",
+    Product.FUTURES: "future_meta",
+    Product.OPTION: "option_meta",
+    Product.INDEX: "index_meta",
+    Product.FUND: "fund_meta",
+}
 
 
 class ArcticDatabase(BaseDatabase):
@@ -28,6 +36,7 @@ class ArcticDatabase(BaseDatabase):
         )
 
         # 获取实例
+        self.metadata_librarys: Dict[str, MetadataStore] = {}
         self.bar_library: ChunkStore = self.initialize_or_get_library("bar_data", CHUNK_STORE)
         self.tick_library: ChunkStore = self.initialize_or_get_library("tick_data", CHUNK_STORE)
         self.bar_overview_library: MetadataStore = self.initialize_or_get_library("data_overview", METADATA_STORE)
@@ -322,6 +331,28 @@ class ArcticDatabase(BaseDatabase):
             overviews.append(overview)
 
         return overviews
+
+    def get_contract(self, symbol: str, exchange: Exchange, product: Product) -> Optional[ContractData]:
+        """"""
+        try:
+            meta_lib = self.metadata_librarys.setdefault(product.value, self.connection[PRODUCT_MAPPING[product]])
+            meta = meta_lib.read(f"{symbol.upper()}_{exchange.name}")
+            if not meta:
+                return None
+            return ContractData(
+                symbol=symbol,
+                exchange=exchange,
+                name=meta.get("name", ""),
+                product=product,
+                size=meta.get("contract_multiplier", 1),
+                pricetick=meta.get("tick_size", 0.001),
+                min_volume=meta.get("min_volume", 1),
+                stop_supported=False,
+                net_position=False,
+                gateway_name="DB",
+            )
+        except Exception:
+            return None
 
 
 def generate_table_name(symbol: str, exchange: Exchange, interval: Interval = None) -> str:
