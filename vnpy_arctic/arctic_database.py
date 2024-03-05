@@ -167,7 +167,9 @@ class ArcticDatabase(BaseDatabase):
     ) -> List[BarData]:
         """读取K线数据"""
         table_name: str = generate_table_name(symbol, exchange, interval)
-        df: DataFrame = self.bar_library.read(table_name, chunk_range=DateRange(start, end))
+        df: DataFrame = self.bar_library.read(
+            table_name, chunk_range=DateRange(start.replace(tzinfo=None), end.replace(tzinfo=None))
+        )
 
         if df.empty:
             return []
